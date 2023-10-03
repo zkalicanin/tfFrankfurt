@@ -1,0 +1,50 @@
+
+Todo:
+fix rds module  
+    remove ad azure 
+    add iam roles for this specific case
+# create lambda modules 
+    # .net lambda 
+.. clean modules
+check all roles and policies and realize where is nature place for them
+    create txt file with all roles and policies
+.. How to do terraform apply when we work with modules
+git ignore
+
+...
+CI/CD NANA
+SendBox
+
+
+    
+------------------------------
+# create and clean lambda modules 
+test every module for it self in self host projects
+extract setup info for iam, variables for system
+    vpc
+    api_gateway
+    sqs; dlq
+    lambda  
+    rds
+    rds ad
+-----
+
+terraform init, apply, destroy, 
+
+
+IAM:
+https://www.youtube.com/watch?v=iF9fs8Rw4Uo
++2
+
+terraform module testing
+https://www.youtube.com/watch?v=1LInIWM_2UQ
+
+
+https://www.kickstarter.com/projects/asteriskwatches/asterisk-national-parks-watches?ref=2wwqqw&utm_source=jellop&ja=z2aimakj&utm_medium=facebook&utm_id=fb&utm_term=001.ja&utm_content=AsteriskWatches-VD08&fbclid=IwAR1P7GiIWy3FtDzj5yA-I5aQs9emiPG2czPibDXnXRBeUAHFe7gel1GrPP8
+
+
+Herber Geroge Wels
+    Otvorena zavera
+    Novi svetski poredak
+    Svetski mozak
+

@@ -1,0 +1,35 @@
+project/: This is the root directory of your Terraform project.
+
+main.tf: This file likely contains the main configuration for your infrastructure. It may include resource definitions and module invocations.
+
+provider.tf: In this file, you specify the provider configuration, such as AWS or Azure, including authentication and region settings.
+
+vpc.tf: Contains the configuration for your Virtual Private Cloud (VPC), including subnets, route tables, and security groups.
+
+lambda.tf: Contains the configuration for AWS Lambda functions, including function definitions, event sources, and execution roles.
+
+api_gateway.tf: Includes the configuration for your API Gateway, including REST API definitions, methods, and integrations.
+
+sqs.tf: Contains the configuration for your AWS Simple Queue Service (SQS) queues, including queue definitions and policies.
+
+rds.tf: Includes the configuration for your AWS Relational Database Service (RDS) instances, including database definitions, security groups, and IAM roles.
+
+modules/: This directory contains submodules that encapsulate specific pieces of infrastructure. Each submodule has its own main.tf, variables.tf, and outputs.tf files.
+
+vpc/: A module for VPC-related resources. It defines VPCs, subnets, and associated resources.
+
+lambda/: A module for AWS Lambda functions and related resources.
+
+api_gateway/: A module for API Gateway resources, making it easier to manage API definitions and integrations.
+
+sqs/: A module for AWS SQS queue definitions and policies.
+
+rds/: A module for AWS RDS instances and their associated resources.
+
+variables.tf: This file in the root directory defines variables that can be used across your entire project. It helps parameterize your configuration and make it more flexible.
+
+outputs.tf: Similar to variables.tf, this file in the root directory defines outputs that allow you to expose specific information about your infrastructure after it's created.
+
+This organization allows you to separate concerns and keep your codebase modular and maintainable. You can reuse these modules in different projects or even share them with the community if they are generic and reusable. Additionally, by centralizing provider configuration in provider.tf, you can easily switch between providers if needed.
+
+Write in terraform project/main.tf for architecture descibed above.

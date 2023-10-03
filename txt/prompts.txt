@@ -1,0 +1,654 @@
+Refactor below terraform code in that way that every AWS Service is module for it self
+
+
+# Provider
+provider "aws" {
+  region = "us-east-1"
+}
+
+# ----------------- VPC -----------------
+# Create AWS VPC
+resource "aws_vpc" "my_vpc" {
+  cidr_block = "172.31.0.0/16"
+  enable_dns_hostnames = true
+  enable_dns_support = true
+  instance_tenancy = "default"
+  tags = {
+    Name = "my_vpc"
+  }
+}
+# Create AWS Subnet for public - my_subnet_public_one
+resource "aws_subnet" "my_subnet_public_one" {
+  vpc_id = aws_vpc.my_vpc.id
+  cidr_block = "172.31.0.0/20"
+  availability_zone = "us-east-1a"
+  map_public_ip_on_launch = true
+  tags = {
+    Name = "my_subnet_public_one"
+  }
+}
+# Create AWS Subnet for public - my_subnet_public_two
+resource "aws_subnet" "my_subnet_public_two" {
+  vpc_id = aws_vpc.my_vpc.id
+  cidr_block = "172.31.16.0/20"
+  availability_zone = "us-east-1b"
+  map_public_ip_on_launch = true
+  tags = {
+    Name = "my_subnet_public_two"
+  }
+}
+# Create AWS Subnet for private - my_subnet_private_one
+resource "aws_subnet" "my_subnet_private_one" {
+  vpc_id = aws_vpc.my_vpc.id
+  cidr_block = "172.31.32.0/20"
+  availability_zone = "us-east-1a"
+  map_public_ip_on_launch = false
+  tags = {
+    Name = "my_subnet_private_one"
+  }
+}
+# Create AWS Subnet for private - my_subnet_private_two
+resource "aws_subnet" "my_subnet_private_two" {
+  vpc_id = aws_vpc.my_vpc.id
+  cidr_block = "172.31.48.0/20"
+  availability_zone = "us-east-1b"
+  map_public_ip_on_launch = false
+  tags = {
+    Name = "my_subnet_private_two"
+  }
+}
+
+# Create AWS Internet Gateway
+resource "aws_internet_gateway" "my_igw" {
+  vpc_id = aws_vpc.my_vpc.id
+  tags = {
+    Name = "my_igw"
+  }
+}
+# Create AWS Route Table
+resource "aws_route_table" "my_route_table" {
+  vpc_id = aws_vpc.my_vpc.id
+  route {
+    cidr_block = "172.31.0.0/19"
+    gateway_id = aws_internet_gateway.my_igw.id 
+  }
+  tags = {
+    Name = "my_route_table"
+  }
+}
+# Create AWS Route Table Association for public subnet one
+resource "aws_route_table_association" "my_route_table_association_public_one" {
+  subnet_id = aws_subnet.my_subnet_public_one.id
+  route_table_id = aws_route_table.my_route_table.id
+}
+# Create AWS Route Table Association for public subnet two
+resource "aws_route_table_association" "my_route_table_association_public_two" {
+  subnet_id = aws_subnet.my_subnet_public_two.id
+  route_table_id = aws_route_table.my_route_table.id
+}
+
+# ----------------- Lambda C# -----------------
+# Lambda Archive File
+data "archive_file" "lambda_zip" {
+  type        = "zip"
+  source_dir  = "${path.module}/lambda"
+  output_path = "${path.module}/lambda.zip"
+}
+# Lambda IAM Role
+resource "aws_iam_role" "lambda-iam-role" {
+  name = "lambda-iam-role"
+  assume_role_policy = <<EOF
+  {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Action": "sts:AssumeRole",
+        "Principal": {
+          "Service": "lambda.amazonaws.com"
+        },
+        "Effect": "Allow",
+        "Sid": ""
+      }
+    ]
+  }
+  EOF
+}
+# Lambda IAM Policy
+resource "aws_iam_policy" "lambda-iam-policy" {
+  name = "lambda-iam-policy"
+  policy = <<EOF
+  {
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Action": [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ],
+        "Effect": "Allow",
+        "Resource": "arn:aws:logs:*:*:*"
+      },
+      {
+        Action = [
+          "sqs:ReceiveMessage",
+          "sqs:DeleteMessage",
+          "sqs:GetQueueAttributes"
+        ],
+        Effect = "Allow",
+        Resource = aws_sqs_queue.my_queue.arn
+      }
+    ]
+  }
+  EOF
+}
+# Lambda IAM Policy Attachment
+resource "aws_iam_role_policy_attachment" "lambda-iam-policy-attachment" {
+  role = "${aws_iam_role.lambda-iam-role.name}"
+  policy_arn = "${aws_iam_policy.lambda-iam-policy.arn}"
+}
+# Lambda Function
+resource "aws_lambda_function" "lambda" {
+    filename = "${path.module}/lambda.zip"
+    function_name = "lambda-function"
+    role = "${aws_iam_role.lambda-iam-role.arn}"
+    handler = "lambda_function.lambda_handler"
+    source_code_hash = "${data.archive_file.lambda_zip.output_base64sha256}"
+    runtime = "dotnetcore3.1"
+    publish = true
+    vpc_config {
+      subnet_ids         = [aws_subnet.my_subnet_public_one.id, aws_subnet.my_subnet_public_two.id]
+      security_group_ids = [aws_security_group.lambda_security_group.id]
+    }
+}
+# Create S3 Bucket to store the Lambda
+resource "aws_s3_bucket" "lambda_deployment_bucket" {
+  bucket = "my-lambda-deployment-bucket"
+  acl = "private"
+  versioning {
+    enabled = true
+  }
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+# Lambda Permission to Consume Messages from SQS
+resource "aws_lambda_permission" "sqs_permission" {
+  statement_id  = "AllowExecutionFromSQS"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.lambda.function_name
+  principal     = "sqs.amazonaws.com"
+  source_arn    = aws_sqs_queue.my_queue.arn
+}
+
+# Trigger Lambda Function on SQS Message
+resource "aws_lambda_event_source_mapping" "sqs_trigger" {
+  event_source_arn = aws_sqs_queue.my_queue.arn
+  function_name    = aws_lambda_function.lambda.function_name
+  batch_size       = 10 # Adjust as needed
+  maximum_batching_window_in_seconds = 60 # Adjust as needed
+}
+
+# Create a CloudWatch Logs Group for Lambda
+resource "aws_cloudwatch_log_group" "lambda_logs" {
+  name = "/aws/lambda/${aws_lambda_function.lambda.function_name}"
+}
+
+# Grant Lambda Permission to Write Logs
+resource "aws_lambda_permission" "logs_permission" {
+  statement_id  = "AllowExecutionToCloudWatchLogs"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.lambda.function_name
+  principal     = "logs.amazonaws.com"
+}
+
+# Create a CloudWatch Log Stream for Lambda
+resource "aws_cloudwatch_log_stream" "lambda_log_stream" {
+  name           = aws_lambda_function.lambda.function_name
+  log_group_name = aws_cloudwatch_log_group.lambda_logs.name
+}
+resource "aws_security_group" "lambda_security_group" {
+  vpc_id = aws_vpc.my_vpc.id
+  egress {
+    from_port   = 0
+    to_port     = 65535
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+
+
+# ----------------- API Gateway ----------------- 
+# API Gateway Rest API
+resource "aws_api_gateway_rest_api" "my_api" {
+  name        = "my_api"
+  description = "This is my API for demonstration purposes"
+}
+# API Gateway Resource
+resource "aws_api_gateway_resource" "resource" {
+  rest_api_id = aws_api_gateway_rest_api.my_api.id
+  parent_id = aws_api_gateway_rest_api.my_api.root_resource_id
+  path_part = "myresource"
+}
+# API Gateway Method
+resource "aws_api_gateway_method" "post_method" {
+    rest_api_id = aws_api_gateway_rest_api.my_api.id
+    resource_id = aws_api_gateway_resource.resource.id
+    http_method = "POST"
+    authorization = "NONE"  
+}
+# API Gateway Stage
+resource "aws_api_gateway_stage" "dev_stage" {
+  rest_api_id = aws_api_gateway_rest_api.my_api.id
+  stage_name  = "dev"
+
+  # Enable CloudWatch Logs for the stage
+  logging_level = "INFO"  # Adjust log level as needed (INFO, ERROR, etc.)
+}
+
+# API Gateway API Key
+resource "aws_api_gateway_api_key" "my_api_key" {
+  name = "my_api_key"
+  description = "This is my API key for demonstration purposes"
+  enabled = true
+  stage_key {
+    rest_api_id = aws_api_gateway_rest_api.my_api.id
+    stage_name = "dev"
+  }
+}
+# API Gateway Usage Plan
+resource "aws_api_gateway_usage_plan" "my_usage_plan" {
+  name = "my_usage_plan"
+  description = "This is my usage plan for demonstration purposes"
+  product_code = "my_product_code"
+  quota_settings {
+    limit = 10000
+    offset = 0
+    period = "MONTH"
+  }
+  api_stages {
+    api_id = aws_api_gateway_rest_api.my_api.id
+    stage = "dev"
+  }
+}
+# API Gateway Usage Plan Key Assiciation
+resource "aws_api_gateway_usage_plan_key" "my_usage_plan_key" {
+  key_id = aws_api_gateway_api_key.my_api_key.id
+  key_type = "API_KEY"
+  usage_plan_id = aws_api_gateway_usage_plan.my_usage_plan.id
+}
+# API Gateway Deployment
+resource "aws_api_gateway_deployment" "deployment" {
+  depends_on = [aws_api_gateway_integration.lambda_integration]
+  rest_api_id = aws_api_gateway_rest_api.my_api.id
+  stage_name = "dev"
+}
+# Output the Invoke URL
+output "invoke_url" {
+  value = aws_api_gateway_deployment.deployment.invoke_url
+}
+
+# API Gateway Output
+output "api_endpoint" {
+  value = aws_api_gateway_deployment.deployment.invoke_url
+}
+
+# Define an IAM policy for API Gateway logging
+resource "aws_iam_policy" "api_gateway_cloudwatch_logs_policy" {
+  name        = "APIGatewayCloudWatchLogsPolicy"
+  description = "IAM policy to allow API Gateway to create and write logs to CloudWatch Logs"
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+        ],
+        Effect   = "Allow",
+        Resource = "*",
+      },
+    ],
+  })
+}
+
+# Create an IAM Role for API Gateway Execution
+resource "aws_iam_role" "api_gateway_execution_role" {
+  name = "api-gateway-execution-role"
+  
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Action = "sts:AssumeRole",
+        Effect = "Allow",
+        Principal = {
+          Service = "apigateway.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+# Attach the IAM policy to the IAM role associated with your API Gateway stage
+resource "aws_iam_role_policy_attachment" "api_gateway_role_policy_attachment" {
+  policy_arn = aws_iam_policy.api_gateway_cloudwatch_logs_policy.arn
+  role       = aws_iam_role.api_gateway_execution_role.name
+}
+
+# Replace "aws_iam_role.api_gateway_execution_role" with the actual IAM role associated with your API Gateway execution (stage) role.
+
+
+# ----------------- SQS and DLQ -----------------
+# SQS Queue
+resource "aws_sqs_queue" "my_queue" {
+  name = var.my_queue_name
+  vpc_configuration {
+    subnet_ids = [aws_subnet.subnet_1.id, aws_subnet.subnet_2.id]
+  }
+  delay_seconds = 90
+  max_message_size = 262144
+  message_retention_seconds = 345600
+  receive_wait_time_seconds = 10
+  content_based_deduplication = false
+  fifo_queue                 = false
+  kms_data_key_reuse_period_seconds = 300
+  name_prefix                = ""
+  sqs_managed_sse_enabled    = true
+  visibility_timeout_seconds = 60
+
+  redrive_policy = <<EOF
+  {
+    "deadLetterTargetArn": "${aws_sqs_queue.my_queue_dlq.arn}",
+    "maxReceiveCount": 3 # Number of times a message can be received before going to the DLQ
+  }
+  EOF
+}
+# DLQ Queue
+resource "aws_sqs_queue" "my_queue_dlq" {
+  name = var.my_queue_dlq_name
+  vpc_configuration {
+    subnet_ids = [aws_subnet.subnet_1.id, aws_subnet.subnet_2.id]
+  }
+  delay_seconds = 90
+  max_message_size = 262144
+  message_retention_seconds = 345600
+  receive_wait_time_seconds = 10
+  content_based_deduplication = false
+  fifo_queue                 = false
+  kms_data_key_reuse_period_seconds = 300
+  name_prefix                = ""
+  sqs_managed_sse_enabled    = true
+  visibility_timeout_seconds = 30
+}
+# SQS Queue Policy
+resource "aws_sqs_queue_policy" "my_queue_policy" {
+  queue_url = aws_sqs_queue.my_queue.id
+  policy = <<EOF
+  {
+    "Version": "2012-10-17",
+    "Id": "SQSDefaultPolicy",
+    "Statement": [
+      {
+        "Sid": "Sid1564164737313",
+        "Effect": "Allow",
+        "Principal": {
+          "AWS": "*"
+        },
+        "Action": "SQS:SendMessage",
+        "Resource": "${aws_sqs_queue.my_queue.arn}",
+        "Condition": {
+          "ArnEquals": {
+            "aws:SourceArn": "${aws_sqs_queue.my_queue_dlq.arn}"
+          }
+        }
+      }
+    ]
+  }
+  EOF
+}
+# SQS Queue and DLQ Queue Outputs URL and ARN
+output "my_queue_url" {
+  value = aws_sqs_queue.my_queue.id
+  description = "value of the SQS Queue URL"
+}
+output "my_queue_dlq_url" {
+  value = aws_sqs_queue.my_queue_dlq.id
+  description = "value of the SQS DLQ Queue URL"
+}
+output "my_queue_arn" {
+  value = aws_sqs_queue.my_queue.arn
+  description = "value of the SQS Queue ARN"
+}
+output "my_queue_dlq_arn" {
+  value = aws_sqs_queue.my_queue_dlq.arn
+  description = "value of the SQS DLQ Queue ARN"
+}
+# SQS and DLQ Queue Name Variables
+variable "my_queue_name" {
+  value = "my_queue"
+}
+variable "my_queue_dlq_name" {
+  value = "my_queue_dlq"
+}
+# Create an Integration to SQS
+resource "aws_api_gateway_integration" "sqs_integration" {
+  rest_api_id = aws_api_gateway_rest_api.my_api.id
+  resource_id = aws_api_gateway_resource.resource.id
+  http_method = aws_api_gateway_method.post_method.http_method
+
+  integration_http_method = "POST"
+  type                   = "AWS"
+  uri                    = aws_sqs_queue.my_queue.arn
+  passthrough_behavior   = "NEVER"
+}
+# Create a Method Response
+resource "aws_api_gateway_method_response" "method_response" {
+  rest_api_id = aws_api_gateway_rest_api.my_api.id
+  resource_id = aws_api_gateway_resource.resource.id
+  http_method = aws_api_gateway_method.post_method.http_method
+  status_code = "200"
+}
+# Create an Integration Response
+resource "aws_api_gateway_integration_response" "integration_response" {
+  rest_api_id = aws_api_gateway_rest_api.my_api.id
+  resource_id = aws_api_gateway_resource.resource.id
+  http_method = aws_api_gateway_method.post_method.http_method
+  status_code = aws_api_gateway_method_response.method_response.status_code
+}
+
+# Create a CloudWatch Log Group for SQS
+resource "aws_cloudwatch_log_group" "sqs_logs" {
+  name = "SQSLogs"
+}
+
+# Create a CloudWatch Log Stream for SQS
+resource "aws_cloudwatch_log_stream" "sqs_log_stream" {
+  name           = "SQSLogStream"
+  log_group_name = aws_cloudwatch_log_group.sqs_logs.name
+}
+
+# Create a CloudWatch Log Group for DLQ
+resource "aws_cloudwatch_log_group" "dlq_logs" {
+  name = "DLQLogs"
+}
+
+# Create a CloudWatch Log Stream for DLQ
+resource "aws_cloudwatch_log_stream" "dlq_log_stream" {
+  name           = "DLQLogStream"
+  log_group_name = aws_cloudwatch_log_group.dlq_logs.name
+}
+
+
+
+# ----------------- RDS MSSQL -----------------
+# Create RDS MSSQL Instance
+resource "aws_db_instance" "my_db_instance" {
+  allocated_storage = 20
+  engine = "sqlserver-ex"
+  engine_version = "15.00.2000.05.v1"
+  instance_class = "db.t2.micro"
+  name = "my_db_instance"
+  username = "my_db_username"
+  password = "my_db_password"
+  parameter_group_name = "default.sqlserver-ex-15.00"
+  skip_final_snapshot = true
+  backup_retention_period = 7
+  vpc_security_group_ids = [aws_security_group.mssql_security_group.id]
+  tags = {
+    Name = "my_db_instance"
+  }
+}
+# Create RDS MSSQL Security Group
+resource "aws_security_group" "mssql_security_group" {
+  name = "mssql_security_group"
+  description = "mssql_security_group"
+  vpc_id = aws_vpc.my_vpc.id
+  ingress {
+    from_port = 1433
+    to_port = 1433
+    protocol = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  } 
+  egress {
+    from_port = 0
+    to_port = 0
+    protocol = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  } 
+  tags = {
+    Name = "my_security_group"
+  }
+} 
+
+# --------- RDS MSSQL using Azure AD ----------
+# Create RDS MSSQL Instance
+resource "aws_db_instance" "my_db_instance_azure_ad" {
+  allocated_storage      = 20
+  engine                 = "sqlserver-ex"
+  engine_version         = "15.00.2000.05.v1"
+  instance_class         = "db.t2.micro"
+  name                   = "my-db-instance"
+  username               = "admin_username"  # Replace with your desired admin username
+  password               = "admin_password"  # Replace with your desired admin password
+  skip_final_snapshot    = true
+  vpc_security_group_ids = [aws_security_group.mssql_azure_ad_security_group.id]
+  tags = {
+    Name = "my-db-instance"
+  }
+
+  # Enable Azure AD authentication
+  enabled_cloudwatch_logs_exports = ["audit"]
+  iam_database_authentication_enabled = true
+  monitoring_interval                   = 0
+  performance_insights_enabled          = false
+  skip_upgrade                          = false
+  enable_cloudwatch_logs_exports        = ["audit"]
+  iam_roles = [aws_db_instance_role_association.azure_ad_association.id]
+}
+# Create a secret in AWS Secrets Manager for Azure AD authentication
+resource "aws_secretsmanager_secret" "azure_ad_secret" {
+  name = "my-azure-ad-secret"
+}
+resource "aws_secretsmanager_secret_version" "azure_ad_secret_version" {
+  secret_id     = aws_secretsmanager_secret.azure_ad_secret.id
+  secret_string = jsonencode({
+    username: "azure_ad_admin_username",  # Replace with your Azure AD admin username
+    password: "azure_ad_admin_password"   # Replace with your Azure AD admin password
+  })
+}
+# Enable Azure AD authentication for the RDS instance
+resource "aws_db_instance_role_association" "azure_ad_association" {
+  db_instance_identifier = aws_db_instance.my_db_instance.id
+  feature_name           = "MicrosoftIAM"
+  role_arn               = aws_iam_role.azure_ad_role.arn
+}
+resource "aws_iam_role" "azure_ad_role" {
+  name = "my-azure-ad-role"
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [{
+      Action = "sts:AssumeRoleWithWebIdentity",
+      Effect = "Allow",
+      Principal = {
+        Federated = "cognito-identity.amazonaws.com"
+      },
+      Condition = {
+        StringEquals = {
+          "cognito-identity.amazonaws.com:aud" = "us-east-1:your-cognito-identity-pool-id"
+        }
+      }
+    }]
+  })
+}
+# Attach policies to the Azure AD role as needed
+resource "aws_iam_policy_attachment" "attach_azure_ad_policies" {
+  policy_arn = "arn:aws:iam::aws:policy/AmazonRDSFullAccess"
+  role       = aws_iam_role.azure_ad_role.name
+}
+# Your security group configuration (modify as needed)
+resource "aws_security_group" "mssql_azure_ad_security_group" {
+  name        = "mssql-azure-ad-security-group"
+  description = "MSSQL Azure AD security group"
+  vpc_id      = aws_vpc.my_vpc.id  
+
+  ingress {
+    from_port = 1433
+    to_port = 1433
+    protocol = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  } 
+  egress {
+    from_port = 0
+    to_port = 0
+    protocol = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  } 
+  tags = {
+    Name = "mssql_azure_ad_security_group"
+  }
+}
+# Create a CloudWatch Log Group for RDS
+resource "aws_cloudwatch_log_group" "rds_logs" {
+  name = "RDSLogs"
+}
+# Create a CloudWatch Logs Export Task
+resource "aws_cloudwatch_log_stream" "rds_export" {
+  log_group_name           = aws_cloudwatch_log_group.rds_logs.name
+  destination_arn          = aws_db_instance.my_db_instance.arn
+  destination_data_format = "json"
+}
+resource "aws_security_group" "rds_security_group" {
+  vpc_id = aws_vpc.my_vpc.id
+
+  # Define inbound rules for RDS
+  # Allow incoming traffic on port 1433 (SQL Server) from Lambda's security group
+
+  # Allow traffic from Lambda's security group
+  ingress {
+    from_port   = 1433  # The port your RDS instance listens on (change if necessary)
+    to_port     = 1433  # The same port as from_port
+    protocol    = "tcp"
+    security_groups = [aws_security_group.lambda_security_group.id]
+  }
+
+  # ... Other rules or configurations ...
+
+  tags = {
+    Name = "my_security_group"
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
