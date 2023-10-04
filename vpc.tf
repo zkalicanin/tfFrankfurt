@@ -1,3 +1,5 @@
+
+/*
 module "vpc" {
   source = "./modules/vpc"
 
@@ -7,3 +9,4 @@ module "vpc" {
   public_subnet_cidrs = ["172.31.0.0/20", "172.31.16.0/20"]
   private_subnet_cidrs = ["172.31.32.0/20", "172.31.48.0/20"]
 }
+*/

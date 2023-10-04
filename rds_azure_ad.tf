@@ -1,3 +1,4 @@
+/*
 module "rds_azure_ad" {
   source = "./modules/rds_azure_ad"  # Path to the module directory
 
@@ -17,3 +18,4 @@ module "rds_azure_ad" {
   vpc_id                 = module.vpc.vpc_id
   # Define other module variables as needed
 }
+*/

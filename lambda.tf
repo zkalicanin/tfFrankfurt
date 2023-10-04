@@ -1,3 +1,4 @@
+/*
 module "lambda" {
   source = "./modules/lambda"
 
@@ -5,3 +6,4 @@ module "lambda" {
   lambda_zip_dir = "${path.module}/lambda"
   lambda_function_name = "lambda-function"
 }
+*/

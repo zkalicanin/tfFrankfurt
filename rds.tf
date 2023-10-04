@@ -1,4 +1,5 @@
 
+/*
 module "rds" {
   source = "../modules/rds"  # Path to the module directory
 
@@ -12,4 +13,5 @@ module "rds" {
   azure_ad_enabled        = false 
   vpc_id                  = module.vpc.vpc_id 
 }
+*/
 

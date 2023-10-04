@@ -1,3 +1,4 @@
+/*
 module "api_gateway" {
   source          = "./modules/api_gateway"
   api_name        = "my-api"
@@ -13,3 +14,4 @@ module "api_gateway" {
   usage_plan_name = "my-usage-plan"
   usage_plan_product_code = "my-product-code"
 }
+*/
