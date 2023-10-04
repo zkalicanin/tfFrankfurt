@@ -20,7 +20,7 @@ variable "instance_class" {
   type        = string
 }
 
-variable "name" {
+variable "db_name" {
   description = "Name for the RDS instance"
   type        = string
 }
@@ -46,9 +46,19 @@ variable "backup_retention_period" {
   type        = number
 }
 
+variable "vpc_security_group_ids" {
+  description = "List of VPC security group IDs"
+  type        = list(string)
+}
+
 variable "vpc_id" {
   description = "VPC ID"
   type        = string
+}
+
+variable "iam_database_authentication_enabled" {
+  description = "Whether to enable IAM database authentication"
+  type        = bool
 }
 
 

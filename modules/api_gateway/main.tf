@@ -9,8 +9,8 @@ resource "aws_api_gateway_vpc_link" "vpc_link" {
   name = "frankfurt_2_vpc_link"
   description = "VPC Link for Frankfurt 2"
   target_arns = [aws_api_gateway_rest_api.my_api.execution_arn]
-  vpc_id = var.vpc_id
 }
+
 
 # API Gateway Resource
 resource "aws_api_gateway_resource" "resource" {
@@ -27,21 +27,17 @@ resource "aws_api_gateway_method" "method" {
     authorization = "NONE"  
 }
 
-# API Gateway Stage
-resource "aws_api_gateway_stage" "dev_stage" {
-  rest_api_id = aws_api_gateway_rest_api.my_api.id
-  stage_name  = var.stage_name
-  logging_level = "INFO"  # Adjust log level as needed (INFO, ERROR, etc.)
-}
+
 
 # API Gateway API Key
 resource "aws_api_gateway_api_key" "my_api_key" {
   name        = "my_api_key"
   description = "This is my API key for demonstration purposes"
   enabled     = true
-  stage_key {
-    rest_api_id = aws_api_gateway_rest_api.my_api.id
-    stage_name  = var.stage_name
+
+  tags = {
+    Environment = "Dev"
+    Project     = "Demo"
   }
 }
 
@@ -70,9 +66,15 @@ resource "aws_api_gateway_usage_plan_key" "my_usage_plan_key" {
 
 # API Gateway Deployment
 resource "aws_api_gateway_deployment" "deployment" {
-  depends_on  = [aws_api_gateway_integration.lambda_integration]
   rest_api_id = aws_api_gateway_rest_api.my_api.id
   stage_name  = var.stage_name
+}
+
+# API Gateway Stage
+resource "aws_api_gateway_stage" "dev_stage" {
+  rest_api_id   = aws_api_gateway_rest_api.my_api.id
+  stage_name    = var.stage_name
+  deployment_id = aws_api_gateway_deployment.deployment.id
 }
 
 # Define an IAM policy for API Gateway logging

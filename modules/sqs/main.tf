@@ -1,8 +1,5 @@
 resource "aws_sqs_queue" "my_queue" {
   name = var.queue_name
-  vpc_configuration {
-    subnet_ids = var.subnet_ids
-  }
   delay_seconds = 90
   max_message_size = 262144
   message_retention_seconds = 345600
@@ -10,7 +7,6 @@ resource "aws_sqs_queue" "my_queue" {
   content_based_deduplication = false
   fifo_queue                 = false
   kms_data_key_reuse_period_seconds = 300
-  name_prefix                = ""
   sqs_managed_sse_enabled    = true
   visibility_timeout_seconds = 60
 
@@ -21,10 +17,8 @@ resource "aws_sqs_queue" "my_queue" {
 }
 
 resource "aws_sqs_queue" "my_queue_dlq" {
-  name = var.dlq_name
-  vpc_configuration {
-    subnet_ids = var.subnet_ids
-  }
+
+  name = var.sqs_dlq_name
   delay_seconds                     = 90
   max_message_size                  = 262144
   message_retention_seconds         = 345600
@@ -32,7 +26,6 @@ resource "aws_sqs_queue" "my_queue_dlq" {
   content_based_deduplication       = false
   fifo_queue                        = false
   kms_data_key_reuse_period_seconds = 300
-  name_prefix                       = ""
   sqs_managed_sse_enabled           = true
   visibility_timeout_seconds        = 30
 }

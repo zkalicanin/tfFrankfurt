@@ -9,6 +9,10 @@ locals {
   vpc_cidr                = "172.31.0.0/16"
   public_subnet_cidrs     = ["172.31.0.0/20", "172.31.16.0/20"]
   private_subnet_cidrs    = ["172.31.32.0/20", "172.31.48.0/20"]
+  internet_gateway_name   = "frankfurt_2_igw"
+  route_table_name        = "frankfurt_2_rt"
+  route_cidr_block        = "172.31.0.0/19"
+
 
   # API Gateway
   api_name                = "my-api"
@@ -41,7 +45,7 @@ locals {
 
 
 provider "aws" {
-  version                 = "~> 5.0"
+  
   region                  = local.region
   access_key              = local.access_key
   secret_key              = local.secret_key
@@ -56,6 +60,9 @@ module "vpc" {
   vpc_cidr                = local.vpc_cidr
   public_subnet_cidrs     = local.public_subnet_cidrs
   private_subnet_cidrs    = local.private_subnet_cidrs
+  internet_gateway_name   = local.internet_gateway_name
+  route_table_name        = local.route_table_name
+  route_cidr_block        = local.route_cidr_block
 }
 
 module "api_gateway" {
@@ -74,23 +81,14 @@ module "sqs_queues" {
   source                  = "./modules/sqs"
   # Input variables for SQS module
   queue_name              = local.sqs_queue_name
-  dlq_name                = local.sqs_dlq_name
+  sqs_dlq_name            = local.sqs_dlq_name
   subnet_ids              = [ module.vpc.public_subnet_ids[0], module.vpc.public_subnet_ids[1] ]
   api_gateway_rest_api_id = module.api_gateway.rest_api_id
   api_gateway_resource_id = module.api_gateway.resource_id
   api_gateway_http_method = module.api_gateway.http_method 
 }
 
-module "lambda" {
-  source                  = "./modules/lambda"
-  # Input variables for Lambda module
-  sqs_queue_url           = module.sqs_queues.queue_url
-  sqs_dlq_url             = module.sqs_queues.dlq_url
-  subnet_ids              = [ module.vpc.private_subnet_ids[0], module.vpc.private_subnet_ids[1] ]
-  security_group_ids      = [ module.vpc.security_group_id ]
 
-  sqs_queue_arn           = module.sqs_queues.queue_arn
-}
 
 module "rds" {
   source = "./modules/rds"
@@ -99,7 +97,7 @@ module "rds" {
   engine                              = local.rds_engine
   engine_version                      = local.rds_engine_version
   instance_class                      = local.rds_instance_class
-  name                                = local.rds_name
+  db_name                             = local.rds_name
   db_username                         = local.rds_username
   db_password                         = local.rds_password
   parameter_group_name                = local.rds_parameter_group

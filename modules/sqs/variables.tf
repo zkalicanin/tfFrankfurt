@@ -5,7 +5,7 @@ variable "queue_name" {
   type        = string
 }
 
-variable "dlq_name" {
+variable "sqs_dlq_name" {
   description = "Name of the Dead-Letter Queue (DLQ)"
   type        = string
 }
@@ -17,12 +17,12 @@ variable "subnet_ids" {
 
 variable "api_gateway_rest_api_id" {
   description = "ID of the API Gateway"
-  type        = number
+  type        = string
 }
 
 variable "api_gateway_resource_id" {
   description = "ID of the API Gateway Resource"
-  type        = number
+  type        = string
 }
 
 variable "api_gateway_http_method" {

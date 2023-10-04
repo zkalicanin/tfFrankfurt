@@ -15,11 +15,6 @@ variable "vpc_cidr" {
   default       = "172.31.0.0/16"
 }
 
-variable "vpc_id" {
-  description = "ID of the VPC"
-  type        = string
-}
-
 variable "public_subnet_cidrs" {
   description   = "List of CIDR blocks for public subnets"
   type          = list(string)
@@ -32,8 +27,7 @@ variable "private_subnet_cidrs" {
 
 variable "internet_gateway_name" {
   description = "Name of the Internet Gateway"
-  type        = string
-  default     = "my_igw"  # You can change this default value if needed
+  type        = string  
 }
 
 variable "route_cidr_block" {
@@ -48,11 +42,6 @@ variable "route_table_name" {
   default     = "my_route_table"  # You can change this default value if needed
 }
 
-variable "public_subnet_ids" {
-  description = "List of public subnet IDs"
-  type        = list(string)
-
-}
 
 
 

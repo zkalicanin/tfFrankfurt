@@ -29,6 +29,7 @@ output "resource_id" {
   value       = aws_api_gateway_resource.resource.id
 }
 
+
 output "http_method" {
   description = "HTTP method used in the API Gateway"
   value       = aws_api_gateway_method.method.http_method
