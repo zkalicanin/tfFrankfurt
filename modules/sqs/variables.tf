@@ -28,7 +28,6 @@ variable "api_gateway_resource_id" {
 variable "api_gateway_http_method" {
   description = "HTTP Method for the API Gateway"
   type        = string
-  default     = "POST"
 }
 
   

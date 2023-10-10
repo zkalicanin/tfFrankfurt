@@ -6,13 +6,11 @@ variable "region" {
 variable "vpc_name" {
   description = "Name for the VPC"
   type = string
-  default = "my_vpc"
 }
 
 variable "vpc_cidr" {
   description   = "CIDR block for the VPC"
   type          = string
-  default       = "172.31.0.0/16"
 }
 
 variable "public_subnet_cidrs" {
@@ -33,13 +31,11 @@ variable "internet_gateway_name" {
 variable "route_cidr_block" {
   description = "CIDR block for the route"
   type        = string
-  default     = "172.31.0.0/19"  # You can change this default value if needed
 }
 
 variable "route_table_name" {
   description = "Name of the route table"
   type        = string
-  default     = "my_route_table"  # You can change this default value if needed
 }
 
 

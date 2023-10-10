@@ -4,14 +4,12 @@ resource "aws_api_gateway_rest_api" "my_api" {
   name        = var.api_name
   description = var.api_description
 }
-
+# 
 resource "aws_api_gateway_vpc_link" "vpc_link" {
   name = "frankfurt_2_vpc_link"
   description = "VPC Link for Frankfurt 2"
   target_arns = [aws_api_gateway_rest_api.my_api.execution_arn]
 }
-
-
 # API Gateway Resource
 resource "aws_api_gateway_resource" "resource" {
   rest_api_id = aws_api_gateway_rest_api.my_api.id
@@ -27,8 +25,6 @@ resource "aws_api_gateway_method" "method" {
     authorization = "NONE"  
 }
 
-
-
 # API Gateway API Key
 resource "aws_api_gateway_api_key" "my_api_key" {
   name        = "my_api_key"
@@ -39,6 +35,19 @@ resource "aws_api_gateway_api_key" "my_api_key" {
     Environment = "Dev"
     Project     = "Demo"
   }
+}
+
+# API Gateway Deployment
+resource "aws_api_gateway_deployment" "deployment" {
+  rest_api_id = aws_api_gateway_rest_api.my_api.id
+  stage_name  = var.stage_name
+}
+
+# API Gateway Stage
+resource "aws_api_gateway_stage" "dev_stage" {
+  rest_api_id   = aws_api_gateway_rest_api.my_api.id
+  stage_name    = var.stage_name
+  deployment_id = aws_api_gateway_deployment.deployment.id
 }
 
 # API Gateway Integration
@@ -62,19 +71,6 @@ resource "aws_api_gateway_usage_plan_key" "my_usage_plan_key" {
   key_id        = aws_api_gateway_api_key.my_api_key.id
   key_type      = "API_KEY"
   usage_plan_id = aws_api_gateway_usage_plan.my_usage_plan.id
-}
-
-# API Gateway Deployment
-resource "aws_api_gateway_deployment" "deployment" {
-  rest_api_id = aws_api_gateway_rest_api.my_api.id
-  stage_name  = var.stage_name
-}
-
-# API Gateway Stage
-resource "aws_api_gateway_stage" "dev_stage" {
-  rest_api_id   = aws_api_gateway_rest_api.my_api.id
-  stage_name    = var.stage_name
-  deployment_id = aws_api_gateway_deployment.deployment.id
 }
 
 # Define an IAM policy for API Gateway logging

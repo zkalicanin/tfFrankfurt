@@ -69,15 +69,15 @@ resource "aws_lambda_function" "lambda" {
     }
 }
 # Create S3 Bucket to store the Lambda
-resource "aws_s3_bucket" "lambda_deployment_bucket" {
-  bucket = "my-lambda-deployment-bucket"
+resource "aws_s3_bucket" "frankfurt-lambda-bucket" {
+  bucket = "frankfurt-lambda-bucket"
 
   // acl = "private"
   // versioning {
     // enabled = true
   // }
   lifecycle {
-    prevent_destroy = true
+    prevent_destroy = false
   }
 }
 # Lambda Permission to Consume Messages from SQS

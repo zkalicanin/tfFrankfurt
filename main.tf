@@ -1,8 +1,8 @@
 locals {
   # Provider
   region                  = "eu-central-1"
-  access_key              = "*"
-  secret_key              = "*"
+  access_key              = "AKIA6GWFQKZ5VSTBCYXG"
+  secret_key              = "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"
 
   # VPC
   vpc_name                = "frankfurt_2_vpc"
