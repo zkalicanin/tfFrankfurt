@@ -13,7 +13,6 @@ locals {
   route_table_name        = "frankfurt_2_rt"
   route_cidr_block        = "172.31.0.0/19"
 
-
   # API Gateway
   api_name                = "my-api"
   api_description         = "This is my API for demonstration purposes"
@@ -27,6 +26,10 @@ locals {
   sqs_dlq_name            = "my_queue_dlq"
 
   # Lambda
+  lambda_filename         = "lambda.zip"
+  lambda_function_name    = "lambda-function"
+  lambda_handler          = "lambda_function.lambda_handler"
+  lambda_runtime          = "dotnetcore3.1"
 
   # RDS
   rds_name                = "mydb"
@@ -88,10 +91,23 @@ module "sqs_queues" {
   api_gateway_http_method = module.api_gateway.http_method 
 }
 
+module "lambda" {
+  source                  = "./modules/lambda"
 
+  # Input variables for Lambda module
+  lambda_filename         = local.lambda_filename
+  lambda_function_name    = local.lambda_function_name
+  lambda_handler          = local.lambda_handler
+  lambda_runtime          = local.lambda_runtime
+
+  subnet_ids              = [ module.vpc.private_subnet_ids[0], module.vpc.private_subnet_ids[1] ]
+  security_group_ids      = [ module.vpc.security_group_id ]
+  sqs_queue_arn           = module.sqs_queues.queue_arn
+  my_vpc_id               = module.vpc.vpc_id
+}
 
 module "rds" {
-  source = "./modules/rds"
+  source                              = "./modules/rds"
   # Input variables for RDS module
   allocated_storage                   = local.rds_allocated_storage
   engine                              = local.rds_engine
@@ -106,6 +122,5 @@ module "rds" {
   vpc_security_group_ids              = [module.vpc.security_group_id]
   vpc_id                              = module.vpc.vpc_id
   iam_database_authentication_enabled = false
-
 }
 

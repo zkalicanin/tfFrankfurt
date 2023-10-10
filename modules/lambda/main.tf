@@ -1,9 +1,9 @@
-# ----------------- Lambda C# -----------------
+
 # Lambda Archive File
 data "archive_file" "lambda_zip" {
   type        = "zip"
-  source_dir  = "${path.module}/lambda"
-  output_path = "${path.module}/lambda.zip"
+  source_dir  = "${path.module}/lambda"     // what is the path to the lambda code?
+  output_path = "${path.module}/lambda.zip" // what is the path to the lambda code?
 }
 # Lambda IAM Role
 resource "aws_iam_role" "lambda-iam-role" {
@@ -55,30 +55,31 @@ resource "aws_iam_policy" "lambda-iam-policy" {
 }
 # Lambda IAM Policy Attachment
 resource "aws_iam_role_policy_attachment" "lambda-iam-policy-attachment" {
-  role = "${aws_iam_role.lambda-iam-role.name}"
-  policy_arn = "${aws_iam_policy.lambda-iam-policy.arn}"
+  role        = aws_iam_role.lambda-iam-role.name
+  policy_arn  = aws_iam_policy.lambda-iam-policy.arn
 }
 # Lambda Function
 resource "aws_lambda_function" "lambda" {
-    filename = "${path.module}/lambda.zip"
-    function_name = "lambda-function"
-    role = "${aws_iam_role.lambda-iam-role.arn}"
-    handler = "lambda_function.lambda_handler"
-    source_code_hash = "${data.archive_file.lambda_zip.output_base64sha256}"
-    runtime = "dotnetcore3.1"
-    publish = true
+    filename              = var.lambda_filename
+    function_name         = var.lambda_function_name
+    role                  = "${aws_iam_role.lambda-iam-role.arn}"
+    handler               = var.lambda_handler
+    source_code_hash      = "${data.archive_file.lambda_zip.output_base64sha256}"
+    runtime               = var.lambda_runtime
+    publish               = true
     vpc_config {
-      subnet_ids         = var.subnet_ids
-      security_group_ids = var.security_group_ids
+      subnet_ids          = var.subnet_ids
+      security_group_ids  = var.security_group_ids
     }
 }
 # Create S3 Bucket to store the Lambda
 resource "aws_s3_bucket" "lambda_deployment_bucket" {
   bucket = "my-lambda-deployment-bucket"
-  acl = "private"
-  versioning {
-    enabled = true
-  }
+
+  // acl = "private"
+  // versioning {
+    // enabled = true
+  // }
   lifecycle {
     prevent_destroy = true
   }
@@ -94,10 +95,10 @@ resource "aws_lambda_permission" "sqs_permission" {
 
 # Trigger Lambda Function on SQS Message
 resource "aws_lambda_event_source_mapping" "sqs_trigger" {
-  event_source_arn = var.sqs_queue_arn
-  function_name    = aws_lambda_function.lambda.function_name
-  batch_size       = 10 # Adjust as needed
-  maximum_batching_window_in_seconds = 60 # Adjust as needed
+  event_source_arn                    = var.sqs_queue_arn
+  function_name                       = aws_lambda_function.lambda.function_name
+  batch_size                          = 10 # Adjust as needed
+  maximum_batching_window_in_seconds  = 60 # Adjust as needed
 }
 
 # Create a CloudWatch Logs Group for Lambda
@@ -119,7 +120,7 @@ resource "aws_cloudwatch_log_stream" "lambda_log_stream" {
   log_group_name = aws_cloudwatch_log_group.lambda_logs.name
 }
 resource "aws_security_group" "lambda_security_group" {
-  vpc_id = aws_vpc.my_vpc.id
+  vpc_id = var.my_vpc.id
   egress {
     from_port   = 0
     to_port     = 65535
