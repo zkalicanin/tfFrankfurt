@@ -26,10 +26,10 @@ locals {
   sqs_dlq_name            = "my_queue_dlq"
 
   # Lambda
-  lambda_filename         = "lambda.zip"
-  lambda_function_name    = "lambda-function"
-  lambda_handler          = "lambda_function.lambda_handler"
-  lambda_runtime          = "dotnetcore3.1"
+  lambda_filename         = "HelloFrankfurt.zip"
+  lambda_function_name    = "HelloFrankfurt"
+  lambda_handler          = "HelloFrankfurt::HelloFrankfurt.Function::FunctionHandler"
+  lambda_runtime          = "dotnet6"
 
   # RDS
   rds_name                = "mydb"
